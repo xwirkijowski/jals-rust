@@ -1,6 +1,50 @@
+#![feature(map_try_insert)]
+
 use std::io;
 use std::collections::HashMap;
 use sha2::{Digest, Sha256};
+
+struct Link {
+    active: bool,
+    url: String,
+    short_url: String,
+    view_count: u64
+}
+
+struct LinkManager {
+    hash_map: HashMap<String, Link>
+}
+
+impl LinkManager {
+    fn new_link (&mut self, url: &str) -> LinkManagerResult {
+        let link:Link = Link {
+            active: true,
+            url: String::from(url),
+            short_url: hash_url(url),
+            view_count: 0
+        };
+
+        let short_code = link.short_url.clone();
+
+        return match self.hash_map.insert(link.short_url.clone(), link) {
+            Some(_) => LinkManagerResult::Error(String::from("INSERT_UPDATED")),
+            None => LinkManagerResult::String(short_code)
+        }
+    }
+
+    fn get_link (&self, short_url: &str) -> LinkManagerResult {
+        return match self.hash_map.get(short_url) {
+            Some(obj) => LinkManagerResult::Link(Link { active: obj.active, url: String::from(&obj.url), short_url: String::from(&obj.short_url), view_count: obj.view_count } ),
+            None => LinkManagerResult::Error(String::from("NOT_FOUND"))
+        }
+    }
+}
+
+enum LinkManagerResult {
+    Link(Link),
+    String(String),
+    Error(String)
+}
 
 enum Command {
     Shorten,
@@ -34,7 +78,7 @@ fn hash_url(url: &str) -> String {
 
 fn main() {
     // Set up the hash map for URL storage in memory
-    let mut url_mapping: HashMap<String, String> = HashMap::new();
+    let mut link_manager: LinkManager = LinkManager{hash_map: HashMap::new()};
 
     println!("Welcome to the J.A.L.S. CLI!");
     println!();
@@ -67,7 +111,7 @@ fn main() {
 
         // Match command from input, to lower case, as string to Command enumeration
         let command = match input_command.as_str() {
-            "shorten" => Command::Shorten, // If command is 'shorten', assign enum Shorten, etc...
+            "shorten" => Command::Shorten, // If command is 'shorten', assign value Shorten to `command`, etc...
             "get" => Command::Get,
             "delete" => Command::Delete,
             "list" => Command::List,
@@ -82,20 +126,26 @@ fn main() {
         match command {
             Command::Shorten => {
                 if let Some(url) = input_args.get(0) {
-                    if !url.is_empty() {
-                        println!("Shortening URL: {}", url);
-
-                        // Logic
-                        let short_url = hash_url(url); // Generate short URL
-                        url_mapping.insert(short_url.clone(), url.to_string()); // Insert into memory
-
-                        println!("Generated short url: {}", short_url);
-
-                        continue;
-                    } else {
+                    if url.is_empty() {
                         println!("Error: You need to specify a target URL argument!");
                         continue;
                     }
+
+                    println!("Shortening URL: {}", url);
+
+                    // Logic
+                    match link_manager.new_link(url) {
+                        LinkManagerResult::String(short_code) => {
+                            println!("Generated short url: {}", short_code);
+                            continue;
+                        },
+                        LinkManagerResult::Error(code) => {
+                            println!("Could not insert link! Error: `{}`", code);
+                            continue;
+                        }
+                        _ => panic!("Unexpected result of `link_manager.new_link()`!")
+                    };
+
                 } else {
                     println!("Error: No argument specified! You need to specify target URL!");
                     continue;
@@ -103,20 +153,24 @@ fn main() {
             },
             Command::Get => {
                 if let Some(short_url) = input_args.get(0) {
-                    if !short_url.is_empty() {
-                        println!("Getting short URL: {}", short_url);
-
-                        if let Some(url) = url_mapping.get(*short_url) {
-                            println!("Full URL: {}", url);
-                            continue;
-                        } else {
-                            println!("Entry for `{}` not found!", short_url);
-                            continue;
-                        }
-                    } else {
+                    if short_url.is_empty() {
                         println!("Error: You need to specify a target short URL argument!");
                         continue;
                     }
+
+                    println!("Getting short URL: {}", short_url);
+
+                    match link_manager.get_link(short_url) {
+                        LinkManagerResult::Link(link) => {
+                            println!("{} -> {}, active?:{}, views:{}", link.short_url, link.url, link.active, link.view_count);
+                            continue;
+                        },
+                        LinkManagerResult::Error(_) => {
+                            println!("Entry for `{}` not found!", short_url);
+                            continue;
+                        }
+                        _ => panic!("Unexpected result of `link_manager.get_link()`!")
+                    };
                 } else {
                     println!("Error: No argument specified! You need to specify target short URL!");
                     continue;
@@ -124,16 +178,16 @@ fn main() {
             },
             Command::Delete => {
                 if let Some(url) = input_args.get(0) {
-                    if !url.is_empty() {
-                        println!("Deleting URL: {}", url);
-
-                        // Logic
-
-                        continue;
-                    } else {
+                    if url.is_empty() {
                         println!("Error: You need to specify a target URL argument!");
                         continue;
                     }
+
+                    println!("Deleting URL: {}", url);
+
+                    // Logic
+
+                    continue;
                 } else {
                     println!("Error: No argument specified! You need to specify target URL!");
                     continue;
@@ -142,7 +196,14 @@ fn main() {
             Command::List => {
                 println!("Listing all shortened URLs...");
 
-                // Logic
+                let mut index = 0;
+
+                for (_, link) in &link_manager.hash_map {
+                    index = index + 1;
+                    println!("{}: {} -> {}, active?:{}, views:{}", index, link.short_url, link.url, link.active, link.view_count);
+                }
+
+                println!("End of list.");
 
                 continue;
             }
