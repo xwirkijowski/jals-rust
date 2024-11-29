@@ -38,6 +38,13 @@ impl LinkManager {
             None => LinkManagerResult::Error(String::from("NOT_FOUND"))
         }
     }
+
+    fn delete_link (&mut self, short_url: &str) -> LinkManagerResult {
+        return match self.hash_map.remove(short_url) {
+            Some(obj) => LinkManagerResult::Link(obj),
+            None => LinkManagerResult::Error(String::from("NOT_FOUND"))
+        }
+    }
 }
 
 enum LinkManagerResult {
@@ -133,7 +140,6 @@ fn main() {
 
                     println!("Shortening URL: {}", url);
 
-                    // Logic
                     match link_manager.new_link(url) {
                         LinkManagerResult::String(short_code) => {
                             println!("Generated short url: {}", short_code);
@@ -145,7 +151,6 @@ fn main() {
                         }
                         _ => panic!("Unexpected result of `link_manager.new_link()`!")
                     };
-
                 } else {
                     println!("Error: No argument specified! You need to specify target URL!");
                     continue;
@@ -162,13 +167,13 @@ fn main() {
 
                     match link_manager.get_link(short_url) {
                         LinkManagerResult::Link(link) => {
-                            println!("{} -> {}, active?:{}, views:{}", link.short_url, link.url, link.active, link.view_count);
+                            println!("{} -> {}, active? {}, views: {}", link.short_url, link.url, link.active, link.view_count);
                             continue;
                         },
                         LinkManagerResult::Error(_) => {
                             println!("Entry for `{}` not found!", short_url);
                             continue;
-                        }
+                        },
                         _ => panic!("Unexpected result of `link_manager.get_link()`!")
                     };
                 } else {
@@ -177,17 +182,25 @@ fn main() {
                 }
             },
             Command::Delete => {
-                if let Some(url) = input_args.get(0) {
-                    if url.is_empty() {
+                if let Some(short_url) = input_args.get(0) {
+                    if short_url.is_empty() {
                         println!("Error: You need to specify a target URL argument!");
                         continue;
                     }
 
-                    println!("Deleting URL: {}", url);
+                    println!("Deleting URL: {}", short_url);
 
-                    // Logic
-
-                    continue;
+                    match link_manager.delete_link(short_url) {
+                        LinkManagerResult::Link(link) => {
+                            println!("Deleted link: {} -> {}, views: {}", link.short_url, link.url, link.view_count);
+                            continue;
+                        },
+                        LinkManagerResult::Error(code) => {
+                            println!("Could not delete link! Error: `{}`", code);
+                            continue;
+                        },
+                        _ => panic!("Unexpected result of `link_manager.get_link()`!")
+                    }
                 } else {
                     println!("Error: No argument specified! You need to specify target URL!");
                     continue;
@@ -200,7 +213,7 @@ fn main() {
 
                 for (_, link) in &link_manager.hash_map {
                     index = index + 1;
-                    println!("{}: {} -> {}, active?:{}, views:{}", index, link.short_url, link.url, link.active, link.view_count);
+                    println!("{}: {} -> {}, active? {}, views: {}", index, link.short_url, link.url, link.active, link.view_count);
                 }
 
                 println!("End of list.");
