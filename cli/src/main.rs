@@ -16,6 +16,10 @@ struct LinkManager {
 }
 
 impl LinkManager {
+    fn setup () -> () {
+        // MongoDB connection logic
+    }
+
     fn new_link (&mut self, url: &str) -> LinkManagerResult {
         let link:Link = Link {
             active: true,
